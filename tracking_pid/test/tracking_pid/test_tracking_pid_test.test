@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+
+    <!-- Test path -->
+    <node name="publish_path" pkg="rostopic" type="rostopic" args="pub --latch /path nav_msgs/Path --file=$(find tracking_pid)/trajectories/coverage_with_orientation_test_1.yaml"/>
+
+</launch>
