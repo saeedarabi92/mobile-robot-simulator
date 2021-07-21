@@ -19,7 +19,6 @@
     </node>
 
     <!-- Test path -->
-    <node name="publish_path" pkg="rostopic" type="rostopic" args="pub --latch /path nav_msgs/Path --file=$(find tracking_pid)/trajectories/coverage_with_orientation_test.yaml"/>
     <node pkg="tf" type="static_transform_publisher" args=" 0 0 0 0 0 0 map path_frame 100" name="path_frame_tfpub"/>
 
     <!-- Rviz -->

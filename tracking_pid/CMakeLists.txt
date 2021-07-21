@@ -113,6 +113,7 @@ install(
 catkin_install_python(
   PROGRAMS
     nodes/path_interpolator
+    nodes/publish_path
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
