@@ -7,7 +7,7 @@
     <node name="interpolator" pkg="tracking_pid" type="path_interpolator" output="screen">
         <param name="target_x_vel" value="0.7"/>
         <param name="target_x_acc" value="10.0"/>
-        <param name="loop" value="-1"/>
+        <param name="loop" value="0"/>
     </node>
 
     <!-- PID controller -->
