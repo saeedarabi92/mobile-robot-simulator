@@ -1,59 +1,92 @@
 #!/usr/bin/env python
 import rospy
-
-from nav_msgs.msg import Path
-from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool
 from geometry_msgs.msg import PoseStamped, PoseArray
+from visualization_msgs.msg import MarkerArray, Marker
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry, Path
 import tf
+import os
+from helper.callback_helper import callback_odom
+from helper.general import distance_to_goal, generate_path, get_path_type
 
 
-global path_pub
-global waypoints
+class Mission_planner():
 
+    def __init__(self):
+        # node name
+        rospy.init_node('mission_planner', anonymous=False)
+        # initial values
+        self.waypoints = [(.1,0), (4,0), (4,1), (0, 1), (0,2), (4,2)]
+        self.laps_num = 1
+        self.path_finished = False
+        self.path_is = None
+        self.msg = None
+        self.point_b = None
+        # subscribers
+        self.sub_trajectory = rospy.Subscriber(
+            '/trajectory_finished', Bool, self.read)
+        self.sub_odom = rospy.Subscriber('/odom', Odometry, self.read)
+        # Publishers
+        self.pub_trajectory = rospy.Publisher('/path', Path, queue_size=1)
+        # publishing rate
+        self.pub_trajectory_rate = 5
 
-path_pub = rospy.Publisher('/path', Path, queue_size=1)
+    def read(self, data):
+        msg_type = str(data._type)
+        if msg_type == 'std_msgs/Bool':
+            self.path_finished = data.data
+        if msg_type == 'nav_msgs/Odometry':
+            self.x_current, self.y_current, self.yaw_current, self.v, self.w, self.got_new_odom = callback_odom(
+                data)
+            
 
-waypoints = [(0,0),
-             (2,0),
-             (2.5,0),
-             (2.5,2),
-             (2,2),
-             (0,2)]
+    def publish(self):
+        self.pub_trajectory.publish(self.msg)
 
-def generate_path(section):
-    msg = Path()
-    msg.header.frame_id = "map"
-    msg.header.stamp = rospy.Time.now()
-    for wp in section:
-        pose = PoseStamped()
-        pose.header.frame_id = "map"
-        pose.pose.position.x = wp[0]
-        pose.pose.position.y = wp[1]
-        pose.pose.position.z = 0
-        quaternion = tf.transformations.quaternion_from_euler(
-            0, 0, 0)
-        pose.pose.orientation.x = quaternion[0]
-        pose.pose.orientation.y = quaternion[1]
-        pose.pose.orientation.z = quaternion[2]
-        pose.pose.orientation.w = quaternion[3]
-        msg.poses.append(pose)
-    return msg
-
-
-def main():
-    for section in zip(waypoints,waypoints[1:]):
-        msg = generate_path(section)
-        rospy.sleep(1)
-        path_pub.publish(msg)
-        print 'Moving in section: ', section
+    def run(self):
+        rospy.loginfo("Waiting 5 seconds to load all the nodes...!")
         rospy.sleep(5)
+        for j in range(self.laps_num):
+            for i, self.section in enumerate(zip(self.waypoints, self.waypoints[1:])):
+                self.compute(i)
+        rospy.logwarn("Mission ended. Killing all the ROS nodes...!")
+        # os.system(
+        #     "rosnode kill --all & killall -9 roscore & killall -9 rosmaster & killall -9 rviz & pkill -9 python")
+
+    def compute(self, i):
+        """
+        Your code goes here!
+        """
+        self.path_is = get_path_type(self.section)
+        self.msg, self.section, self.point_b = generate_path(i, self)
+        if self.path_is == 'straight':
+            rospy.loginfo("waiting 6 seconds to lower the bar...")
+            # publish lowring the bar command
+            rospy.sleep(6)
+        elif self.path_is == 'turn':
+            rospy.loginfo("waiting 2 second and turn...")
+            # publish raising the bar command
+            rospy.sleep(.2)
+
+        # enable the tracker
+        # rospy.sleep(1)
+        self.publish()
+        while True:
+            distance = distance_to_goal(
+                self.x_current, self.y_current, self.section[-1][0], self.section[-1][1])       
+            if self.path_finished and distance < .2:
+                # disable the tracker
+                # rospy.sleep(1)
+                break
+        self.path_finished = False
+
+
+
 
 if __name__ == '__main__':
     try:
-        rospy.init_node('path_node', anonymous=False)
-        main()
-        rospy.spin()
-
+        mission_planner = Mission_planner()
+        mission_planner.run()
     except rospy.ROSInterruptException:
         pass

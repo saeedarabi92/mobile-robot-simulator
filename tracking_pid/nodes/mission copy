@@ -1,0 +1,85 @@
+from helper.path_tracking_helper import PURE_PURSUIT
+import rospy
+from visualization_msgs.msg import MarkerArray, Marker
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry, Path
+import tf
+from helper.callback_helper import callback_odom, callback_markerarray
+
+
+class Mission_planner():
+
+    def __init__(self):
+        # node name
+        rospy.init_node('mission_planner', anonymous=False)
+        # initial values
+        self.waypoints = []
+        self.laps_num = 1
+        self.path_finished = False
+        self.msg = None
+        # subscribers
+        self.sub_trajectory = rospy.Subscriber(
+            '/trajectory_finished', Bool, self.read)
+
+        # Publishers
+        self.pub_trajectory = rospy.Publisher('/path', Path, queue_size=1))
+        # publishing rate
+        self.pub_trajectory_rate = 5
+
+    def read(self, data):
+        msg_type = str(data._type)
+        if msg_type == 'std_msgs/Bool':
+            self.path_finished = data.data
+
+    def publish(self):
+        self.pub_trajectory.publish(self.msg)
+
+    def run(self):
+        rospy.loginfo("Waiting 5 seconds to load all the nodes...!")
+        rospy.sleep(5)
+        for j in range(self.laps_num):
+            for section in zip(self.waypoints, self.waypoints[1:]):
+                self.compute(section)
+        rospy.logwarn("Mission ended. Killing all the ROS nodes...!")
+        os.system(
+            "rosnode kill --all & killall -9 roscore & killall -9 rosmaster & killall -9 rviz & pkill -9 python")
+
+    def generate_path(self, section):
+        self.msg = Path()
+        self.msg.header.frame_id = "map"
+        self.msg.header.stamp = rospy.Time.now()
+        for wp in section:
+            pose = PoseStamped()
+            pose.header.frame_id = "map"
+            pose.pose.position.x = wp[0]
+            pose.pose.position.y = wp[1]
+            pose.pose.position.z = 0
+            quaternion = tf.transformations.quaternion_from_euler(
+                0, 0, 0)
+            pose.pose.orientation.x = quaternion[0]
+            pose.pose.orientation.y = quaternion[1]
+            pose.pose.orientation.z = quaternion[2]
+            pose.pose.orientation.w = quaternion[3]
+            self.msg.poses.append(pose)
+        return self.msg
+
+    def compute(self, section):
+        """
+        Your code goes here!
+        """
+        self.msg = self.generate_path(section)
+        self.publish(self.msg)
+        while True:
+            if self.path_finished:
+                break
+        self.path_finished = False
+
+
+
+
+if __name__ == '__main__':
+    try:
+        mission_planner = Mission_planner()
+        mission_planner.run()
+    except rospy.ROSInterruptException:
+        pass
